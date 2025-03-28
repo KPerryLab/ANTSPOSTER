@@ -209,6 +209,10 @@ stressplot(nmds.ants)
 plot(nmds.ants) # basic plot with no treatment distinctions
 
 adonis2(dis.matrix ~ dat$Site * dat$Year, permutations = 999)
+
+install.packages("devtools")
+library(devtools)
+install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
 library(pairwiseAdonis)
 pairwise.adonis(dis.matrix, dat$Site)
 
@@ -237,3 +241,11 @@ ordiellipse(nmds.ants, dat$Year, draw = "lines", col = c("#22A884FF", "#FDE725FF
 
 legend("bottomleft", legend = c("2015", "2022"),
        pch = c(17, 16, 15), cex = 1.5, bty = "n", col = c("#22A884FF", "#FDE725FF"))
+
+
+library(indicspecies)
+indval.site <- multipatt(data[,8:20], data[,1], duleg = TRUE, control = how(nperm=999)) # alpha = 0.05 is the default
+summary(indval.site, indvalcomp = TRUE)
+
+indval.year <- multipatt(data[,8:20], data[,4], duleg = TRUE, control = how(nperm=999)) # alpha = 0.05 is the default
+summary(indval.year, indvalcomp = TRUE)
