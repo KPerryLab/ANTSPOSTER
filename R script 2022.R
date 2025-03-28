@@ -7,8 +7,6 @@ install.packages("reshape2")
 # Load libraries
 library(readxl)
 library(vegan)
-library(ggplot2)
-library(readxl)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
@@ -17,8 +15,16 @@ library(reshape2)
 
 #Call my data file
 data <- read.csv("C:/Users/gomez.428/OneDrive - The Ohio State University/Documents/Cesia/2022 ant data.csv")
+data <- read.csv("./2022 ant data.csv")
 
 data
+
+str(data) # need to change categorical variables to factors
+data$Site <- as.factor(data$Site)
+data$Plot_no <- as.factor(data$Plot_no)
+data$Year <- as.factor(data$Year)
+data$Collection <- as.factor(data$Collection)
+str(data)
 
 # Inspect data
 head(data)
@@ -36,6 +42,34 @@ data_abundance <- data_abundance %>%
 # Diversity Analysis (Shannon and Simpson Index)
 shannon_index <- diversity(data_abundance, index = "shannon")
 simpson_index <- diversity(data_abundance, index = "simpson")
+
+library(hillR)
+data$shan <- hill_taxa(data[,8:20], q = 1, MARGIN = 1) # shannon
+
+hist(data$shan)
+dotchart(data$shan, group = data$Site, pch = 19)
+dotchart(data$shan, group = data$Year, pch = 19)
+boxplot(shan ~ Site, data = data)
+stripchart(shan ~ Site, data = data, pch = 19, add = TRUE,
+           vertical = TRUE, method = "jitter", jitter = 0.2)
+
+boxplot(shan ~ Site * Year, data = data)
+stripchart(shan ~ Site * Year, data = data, pch = 19, add = TRUE,
+           vertical = TRUE, method = "jitter", jitter = 0.2)
+
+### Run models
+library(lme4)
+library(car)
+library(lmerTest)
+library(emmeans)
+
+mod.shan <- lmer(shan ~ Site * Year + (Collection|Plot_no), data = data)
+summary(mod.shan)
+Anova(mod.shan, type = "III")
+plot(mod.shan, pch = 19)
+qqnorm(residuals(mod.shan))
+qqline(resid(mod.shan))
+# No differences in genera diversity
 
 # Adding diversity indices to the original data
 analysis_data <- data %>%
@@ -155,3 +189,51 @@ p5 <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2, color = Site)) +
 
 # Display the NMDS plot
 print(p5)
+
+
+
+###
+colSums(data[,8:20])
+rowSums(data[,8:20]) # have rows without any counts (i.e., no ants collected in a trap at a site), so we need to remove those before moving on
+
+dat <- data[rowSums(data[,8:20])>0,]
+rowSums(dat[,8:20])
+
+dis.matrix <- vegdist(dat[,8:20], method = "bray")
+dis.matrix
+
+# run the nonmetric multidimensional scaling model
+nmds.ants <- metaMDS(dis.matrix, trymax = 500, autotransform = TRUE, k = 2)
+nmds.ants # stress is quality of fit
+stressplot(nmds.ants)
+plot(nmds.ants) # basic plot with no treatment distinctions
+
+adonis2(dis.matrix ~ dat$Site * dat$Year, permutations = 999)
+library(pairwiseAdonis)
+pairwise.adonis(dis.matrix, dat$Site)
+
+# plot the NMDS model
+ordiplot(nmds.ants, disp = "sites", type = "n", xlim = c(-2, 2), ylim = c(-1, 1.5))
+points(nmds.ants, dis = "sites", select = which(dat$Site=="Forest"), pch = 17, cex = 2, col = "#73D055FF")
+points(nmds.ants, dis = "sites", select = which(dat$Site=="Salvaged"), pch = 16, cex = 2, col = "#481567FF")
+points(nmds.ants, dis = "sites", select = which(dat$Site=="Windthrow"), pch = 15, cex = 2, col = "#2D708EFF")
+levels(dat$Site)
+ordiellipse(nmds.ants, dat$Site, draw = "lines", col = c("#73D055FF", "#481567FF", "#2D708EFF"), 
+            lwd = 3, kind = "sd", conf = 0.90, label = FALSE)
+
+legend("bottomleft", legend = c("Forest", "Salvaged", "Windthrow"),
+       pch = c(17, 16, 15), cex = 1.5, bty = "n", col = c("#73D055FF", "#481567FF", "#2D708EFF"))
+
+
+pairwise.adonis(dis.matrix, dat$Year)
+
+# plot the NMDS model
+ordiplot(nmds.ants, disp = "sites", type = "n", xlim = c(-2, 2), ylim = c(-1, 1.5))
+points(nmds.ants, dis = "sites", select = which(dat$Year=="2015"), pch = 17, cex = 2, col = "#22A884FF")
+points(nmds.ants, dis = "sites", select = which(dat$Year=="2022"), pch = 16, cex = 2, col = "#FDE725FF")
+levels(dat$Year)
+ordiellipse(nmds.ants, dat$Year, draw = "lines", col = c("#22A884FF", "#FDE725FF"), 
+            lwd = 3, kind = "sd", conf = 0.90, label = FALSE)
+
+legend("bottomleft", legend = c("2015", "2022"),
+       pch = c(17, 16, 15), cex = 1.5, bty = "n", col = c("#22A884FF", "#FDE725FF"))
