@@ -1,0 +1,295 @@
+# Install required packages if not already installed
+install.packages(c("readxl", "vegan", "ggplot2", "reshape2", "tidyr", "dplyr", "ggpubr"))
+
+# Load libraries
+library(readxl)
+library(vegan)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(ggpubr)
+library(reshape2)
+
+# Call your data file
+data <- read.csv("C:/Users/gomez.428/OneDrive - The Ohio State University/Documents/Cesia/2022 ant data.csv")
+
+#convert columns to factors
+data$Site <- as.factor(data$Site)
+data$Plot <- as.factor(data$Plot)
+data$Year <- as.factor(data$Year)
+data$Collection <- as.factor(data$Collection)
+data$Date_set <- as.factor(data$Date_set)
+data$Date_collected <- as.factor(data$Date_collected)
+
+
+#Convert columns to numeric
+data$Aphaenogaster <- as.numeric(as.character(data$Aphaenogaster))
+data$Stenamma <- as.numeric(as.character(data$Stenamma))
+data$Myrmecina <- as.numeric(as.character(data$Myrmecina))
+data$Pheidole <- as.numeric(as.character(data$Pheidole))
+data$Syllophopsis <- as.numeric(as.character(data$Syllophopsis))
+data$Myrmica <- as.numeric(as.character(data$Myrmica))
+data$Camponotus <- as.numeric(as.character(data$Camponotus))
+data$Lasius <- as.numeric(as.character(data$Lasius))
+data$Formica <- as.numeric(as.character(data$Formica))
+data$Ponera <- as.numeric(as.character(data$Ponera))
+data$Linepithema <- as.numeric(as.character(data$Linepithema))
+data$Aconthomyops <- as.numeric(as.character(data$Aconthomyops))
+data$Amblyopone <- as.numeric(as.character(data$Amblyopone))
+
+# Inspect data
+head(data)
+
+# Data Preparation
+data_abundance <- data %>%
+  dplyr::select(-Plot, -Collection, -Date_set, -Date_collected)  # Remove unnecessary columns
+
+data_abundance
+
+# Convert all columns to factors  for abundance calculation
+data_abundance$Site <- as.factor(data_abundance$Site)
+#data_abundance$Plot <- as.factor(data_abundance$Plot)
+data_abundance$Year <- as.factor(data_abundance$Year)
+#data_abundance$Collection <- as.factor(data_abundance$Collection)
+#data_abundance$Date_set <- as.factor(data_abundance$Date_set)
+#data_abundance$Date_collected <- as.factor(data_abundance$Date_collected)
+
+
+# Convert all columns to numeric for abundance calculation
+
+data_abundance$Aphaenogaster <- as.numeric(as.character(data_abundance$Aphaenogaster))
+data_abundance$Stenamma <- as.numeric(as.character(data_abundance$Stenamma))
+data_abundance$Myrmecina <- as.numeric(as.character(data_abundance$Myrmecina))
+data_abundance$Pheidole <- as.numeric(as.character(data_abundance$Pheidole))
+data_abundance$Syllophopsis <- as.numeric(as.character(data_abundance$Syllophopsis))
+data_abundance$Myrmica <- as.numeric(as.character(data_abundance$Myrmica))
+data_abundance$Camponotus <- as.numeric(as.character(data_abundance$Camponotus))
+data_abundance$Lasius <- as.numeric(as.character(data_abundance$Lasius))
+data_abundance$Formica <- as.numeric(as.character(data_abundance$Formica))
+data_abundance$Ponera <- as.numeric(as.character(data_abundance$Ponera))
+data_abundance$Linepithema <- as.numeric(as.character(data_abundance$Linepithema))
+data_abundance$Aconthomyops <- as.numeric(as.character(data_abundance$Aconthomyops))
+data_abundance$Amblyopone <- as.numeric(as.character(data_abundance$Amblyopone))
+
+
+
+
+# Diversity Analysis (Shannon and Simpson Index)
+shannon_index <- diversity(data_abundance[, -(1:2)], index = "shannon")
+simpson_index <- diversity(data_abundance[, -(1:2)], index = "simpson")
+
+# Adding diversity indices to the original data
+analysis_data <- data %>%
+  mutate(Shannon_Index = shannon_index,
+         Simpson_Index = simpson_index)
+
+analysis_data
+
+# Compare Diversity Metrics Across Sites and Years
+shannon_model <- aov(Shannon_Index ~ Site * Year, data = analysis_data)
+simpson_model <- aov(Simpson_Index ~ Site * Year, data = analysis_data)
+
+# Summarize and Display ANOVA results
+summary(shannon_model)
+summary(simpson_model)
+
+# Plotting Diversity Indices
+p1 <- ggplot(analysis_data, aes(x = Site, y = Shannon_Index, fill = Year)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Shannon Diversity Index by Site and Year", y = "Shannon Index")
+
+p2 <- ggplot(analysis_data, aes(x = Site, y = Simpson_Index, fill = Year)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Simpson Diversity Index by Site and Year", y = "Simpson Index")
+
+# Display plots
+print(p1)
+print(p2)
+
+
+
+#This is Extra
+#############################################################################
+
+# Abundance Analysis (PERMANOVA)
+ant_matrix <- as.matrix(data_abundance[, -(1:2)])  # Create a matrix of only genera counts
+
+# Remove rows where all genera counts are zero
+rows_to_keep <- rowSums(ant_matrix) > 0
+ant_matrix_clean <- ant_matrix[rows_to_keep, ]
+
+# Also clean the original dataset to match the filtered matrix
+data_abundance_clean <- data_abundance[rows_to_keep, ]  
+
+# Create a distance matrix with the cleaned data
+dist_matrix <- vegdist(ant_matrix_clean, method = "bray")
+
+# Run PERMANOVA including Year as a factor
+permanova <- adonis2(dist_matrix ~ Site * Year, data = data_abundance_clean)
+print(permanova)
+
+############################################################################
+
+# Abundance Comparison for Each Genus
+abundance_data <- data_abundance_clean %>%  # Use the cleaned dataset
+  pivot_longer(cols = Aphaenogaster:Amblyopone, names_to = "Genus", values_to = "Count")
+
+# Plotting Abundance by Site and Year
+p3 <- ggplot(abundance_data, aes(x = Site, y = Count, fill = Year)) +
+  geom_boxplot() +
+  facet_wrap(~ Genus, scales = "free_y") +
+  theme_minimal() +
+  labs(title = "Ant Genera Abundance Across Sites and Years", y = "Abundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Display Plot
+print(p3)
+###################################################################################
+
+
+# Sum the counts of each genus across all plots to see what genus of ant is most abundant
+genus_abundance <- abundance_data %>%
+  group_by(Genus, Year) %>%
+  summarise(Total_Count = sum(Count, na.rm = TRUE)) %>%
+  arrange(desc(Total_Count))
+
+# Display the result
+print(genus_abundance)
+
+# Plotting the bar graph
+p4 <- ggplot(genus_abundance, aes(x = reorder(Genus, -Total_Count), y = Total_Count, fill = as.factor(Year))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(title = "Total Abundance of Ant Genera Across All Sites",
+       x = "Genus",
+       y = "Total Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Display the plot
+print(p4)
+
+# NMDS Analysis
+ant_matrix_nmds <- ant_matrix_clean  # Use cleaned matrix from previous steps
+
+# Perform NMDS (Bray-Curtis Distance)
+set.seed(123)
+nmds_result <- metaMDS(ant_matrix_nmds, distance = "bray", k = 2, trymax = 100)
+
+# Extract NMDS scores and add site & year information
+nmds_scores <- as.data.frame(scores(nmds_result, display = "sites"))
+nmds_scores$Site <- data_abundance_clean$Site
+nmds_scores$Year <- data_abundance_clean$Year
+
+# Plot NMDS
+p5 <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2, color = Site, shape = as.factor(Year))) +
+  geom_point(size = 3) +
+  theme_minimal() +
+  labs(title = "NMDS Plot of Ant Community Structure",
+       x = "NMDS1",
+       y = "NMDS2") +
+  theme(legend.position = "right")
+
+# Display the NMDS plot
+print(p5)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#This is extra
+############################################################################
+#run pairwise comparisons
+# Load necessary libraries
+library(vegan)
+library(dplyr)
+
+# Assuming your data is called data_abundance_clean
+# Remove non-numeric columns and convert to matrix
+ant_matrix <- data_abundance_clean %>%
+  dplyr::select(where(is.numeric)) %>%
+  as.matrix()
+
+# Remove rows where all genera counts are zero
+rows_to_keep <- rowSums(ant_matrix) > 0
+ant_matrix_clean <- ant_matrix[rows_to_keep, ]
+data_abundance_clean <- data_abundance_clean[rows_to_keep, ]  
+
+# Create a distance matrix using Bray-Curtis distance
+dist_matrix <- vegdist(ant_matrix_clean, method = "bray")
+
+# Run a PERMANOVA for the full model
+full_permanova <- adonis2(dist_matrix ~ Site * Year, data = data_abundance_clean)
+print(full_permanova)
+
+# Pairwise comparisons for Site within each Year
+pairwise_results_site <- list()
+years <- unique(data_abundance_clean$Year)
+
+
+
+
+
+#Running a Bray Curtis for question 1
+################################################################################
+
+# Extract species columns only
+species_data <- data_abundance_clean[, c("Aphaenogaster", "Stenamma", "Myrmecina", "Pheidole", "Syllophopsis", 
+                                         "Myrmica", "Camponotus", "Lasius", "Formica", "Ponera", 
+                                         "Linepithema", "Aconthomyops", "Amblyopone")]
+
+# Create a presence-absence matrix
+species_pa <- species_data > 0  # Convert counts to presence (TRUE/FALSE)
+
+# Aggregate presence-absence by year
+species_pa_year <- aggregate(species_pa, by = list(Year = data_abundance_clean$Year), FUN = max)
+
+# Remove the 'Year' column for dissimilarity calculation
+species_matrix <- species_pa_year[, -1]
+
+# Calculate the Sørensen Index (Bray-Curtis Dissimilarity)
+sorensen_index <- vegdist(species_matrix, method = "bray")
+
+# Display the result
+print(sorensen_index)
+grid::grid.raster(img)
+
+
+
+#Running a van Graphic
+###############################################################################
+
+# Open a new plotting window for the Venn Diagram (DO THIS BEFORE THE if() STATEMENT)
+dev.new()  
+
+# Ensure the lists are not empty
+if (length(species_2015) > 0 & length(species_2022) > 0) {
+  # Plotting the Venn Diagram in a separate window
+  draw.pairwise.venn(
+    area1 = length(species_2015),
+    area2 = length(species_2022),
+    cross.area = length(intersect(species_2015, species_2022)),
+    category = c("2015", "2022"),
+    fill = c("skyblue", "pink"),
+    alpha = 0.5,
+    lty = "blank",
+    main = "Venn Diagram: Species Overlap Between 2015 and 2022"
+  )
+} else {
+  print("Error: One or both of the species lists are empty. Check your data.")
+}
